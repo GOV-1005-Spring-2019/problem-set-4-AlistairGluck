@@ -12,6 +12,7 @@ library(dplyr)
 library(broom)
 library(gt)
 library(stringr)
+library(lubridate)
 ```
 
 ```{r echo=FALSE}
@@ -39,35 +40,57 @@ ru <- x %>%
   count()
 ```
 There were `r ru[1,2] - ru[2,2]` more respondents who favored the Republican candidate than who were Undecided.
-```{r}
+```{r, echo = FALSE}
 gender <- x %>% 
   select(gender, gender_combined) %>% 
-  isequal()
+  filter(gender != gender_combined) %>% 
+  count()
 ```
-There are two gender variables (gender and gender_combined). There are `r` individuals for whom these variables have different values.
-```{r}
+There are two gender variables (gender and gender_combined). There are `r gender[]` individuals for whom these variables have different values.
+```{r, echo = FALSE}
 wr <- x %>% 
-  select(race_eth) %>% 
-  filter(race_eth == "White") %>% 
-  nrow
+  select(race_eth, file_race_black) %>% 
+  filter(race_eth == "White", file_race_black != "White") %>% 
+  count()
 
 
 ```
-There are X respondents listed as “White” under race_eth who are not listed as “White” under file_race_black.
-```{r}
+There are `r wr[]` respondents listed as “White” under race_eth who are not listed as “White” under file_race_black.
+```{r, echo = FALSE}
 time <- x %>% 
-  select(response, timestamp) %>% 
-  filter(response %in% c("Dem", "Rep")) %>% 
-  arrange(timestamp) %>% 
-  head()
-  
+  select(response, timestamp) %>%
+  filter(response %in% c("Rep", "Dem")) %>% 
+  group_by(response) %>% 
+  summarize(min = min(timestamp)) %>% 
+  spread(response, min) %>% 
+  mutate(diff = round(Dem - Rep, digits = 0))
 ```
-The first response of Rep came X minutes (rounded to the nearest minute) before the first response of Dem.
+The first response of Rep came `r time[1,3]` minutes (rounded to the nearest minute) before the first response of Dem.
 #Question 2
-```{r}
+
+```{r, echo = FALSE}
 x %>% 
-  select(file_race, race_eth, response, final_weight) %>% 
-  filter(response %in% c("Rep", "Dem", "Und"), 
-         race_eth %in% c("White", "Black", "Hispanic", "Asian", "Other")) %>% 
-  group_by(race_eth, response)
-```
+  select(race_eth, response, final_weight) %>% 
+  filter(response %in% c("Rep", "Dem", "Und", 3), 
+         race_eth != "[DO NOT READ] Don't know/Refused") %>% 
+  mutate(race_eth = fct_relevel(race_eth, c("White", "Black", "Hispanic", "Asian", "Other")))  %>%
+  group_by(race_eth, response) %>%
+  summarize(total = sum(final_weight)) %>% 
+  spread(key = response, value = total, fill = 0) %>%
+  ungroup() %>%
+  mutate(all = Dem + Rep + Und + `3`) %>%
+  mutate(Dem = Dem/all) %>% 
+  mutate(Rep = Rep/all) %>% 
+  mutate(Und = Und/all) %>%
+  select(-all, -`3`) %>% 
+  na_if(0) %>% 
+  gt() %>% 
+  cols_label(Dem = "DEM.", Rep = "REP.", Und = "UND.", race_eth = " ") %>% 
+  fmt_percent(columns = vars(Dem, Rep, Und), decimals = 0) %>% 
+  fmt_missing(columns = 4, rows = 4, missing_text = "-")
+  
+``` 
+  
+  
+  
+  
