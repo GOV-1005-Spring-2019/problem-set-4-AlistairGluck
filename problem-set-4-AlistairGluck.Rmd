@@ -13,6 +13,7 @@ library(broom)
 library(gt)
 library(stringr)
 library(lubridate)
+library(ggthemes)
 ```
 
 ```{r echo=FALSE}
@@ -92,5 +93,28 @@ x %>%
 ``` 
   
   
+```{r, echo = FALSE}
+x %>% 
+  filter(educ %in% c("Bachelors' degree", "Grade school", "Graduate of Professional Degree", "High school", "Some college or trade school")) %>% 
+  group_by(educ) %>% 
+  ggplot(aes(x = educ, y = final_weight)) +
+  coord_flip() +
+  geom_violin() +
+  geom_jitter(alpha = .5)
   
+```
+
+
+```{r, echo = FALSE}
+x %>% 
+  filter(ager != "[DO NOT READ] Refused", response %in% c("Rep", "Dem")) %>% 
+  group_by(response, ager) %>% 
+  ggplot(aes(x = ager, color = response)) +
+  facet_grid(~response) +
+  geom_bar()
+```
+
+#Colleagues
+Niel Schrage, 
+Study halls with Dillon Smith and Charles Flood
   
