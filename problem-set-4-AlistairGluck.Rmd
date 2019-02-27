@@ -17,7 +17,7 @@ library(ggthemes)
 ```
 
 ```{r echo=FALSE}
-
+#reading in the data and insuring that no errors come up
 x <- read_csv("ps_4_elections-poll-nc09-3.csv",
               col_types = cols(
                 .default = col_character(),
@@ -31,38 +31,56 @@ x <- read_csv("ps_4_elections-poll-nc09-3.csv",
 #Question 1
 ```{r, echo = FALSE}
 d <- x %>% 
+#removing all respondents that did not support the dems
   filter(response == "Dem") %>% 
+#counting respondents that met criteria
   nrow()
 ```
 There were `r d` respondents who supported the Democratic candidate.
 ```{r, echo = FALSE}
 ru <- x %>% 
+#filtering out Dems and "3"s
   filter(response %in% c("Rep", "Und")) %>%
+#grouped similar responses together to facilitate counting
   group_by(response) %>% 
+#counted within each group
   count()
+#will subtract values in-line with madlib
 ```
 There were `r ru[1,2] - ru[2,2]` more respondents who favored the Republican candidate than who were Undecided.
 ```{r, echo = FALSE}
 gender <- x %>% 
+#selecting relevant columns for simplicity
   select(gender, gender_combined) %>% 
+#removing all individuals for whom the gender columns matched
   filter(gender != gender_combined) %>% 
+#counting up all the non-matching individuals
   count()
 ```
 There are two gender variables (gender and gender_combined). There are `r gender[]` individuals for whom these variables have different values.
 ```{r, echo = FALSE}
-wr <- x %>% 
+wr <- x %>%
+#removing all irrelevant columns
   select(race_eth, file_race_black) %>% 
+#first remove all respondents who aren't listed as white in race_eth, then removing all who are white in both columns
   filter(race_eth == "White", file_race_black != "White") %>% 
+#tallying the total number of applicable respondents
   count()
 ```
 There are `r wr[]` respondents listed as “White” under race_eth who are not listed as “White” under file_race_black.
 ```{r, echo = FALSE}
 time <- x %>% 
+#isolating relevant columns
   select(response, timestamp) %>%
+#eliminate all responses that aren't relevant to madlib
   filter(response %in% c("Rep", "Dem")) %>% 
+#organize respondents by response
   group_by(response) %>% 
+#find the first (minimum) time for each of the two relevant responses
   summarize(min = min(timestamp)) %>% 
+#reorganize data into new columns by response
   spread(response, min) %>% 
+#create a new difference column that is comprised of the difference in times, rounded to minutes
   mutate(diff = round(Rep - Dem, digits = 0))
 ```
 The first response of Dem came `r time[1,3]` minutes (rounded to the nearest minute) before the first response of Rep.
@@ -71,23 +89,38 @@ The first response of Dem came `r time[1,3]` minutes (rounded to the nearest min
 
 ```{r, echo = FALSE}
 x %>% 
+#removing irrelevant columns to enable more effective repetitive testing
   select(race_eth, response, final_weight) %>% 
+#disinclude non-data points in all columns
   filter(response %in% c("Rep", "Dem", "Und", 3), 
          race_eth != "[DO NOT READ] Don't know/Refused") %>% 
+#reorder the races to match the model
   mutate(race_eth = fct_relevel(race_eth, c("White", "Black", "Hispanic", "Asian", "Other")))  %>%
+#reorganize by race and by response within that
   group_by(race_eth, response) %>%
+#adding up the final weights within each race and response
   summarize(total = sum(final_weight)) %>% 
+#create new columns for each response for each race, turn nonexistent values into 0s
   spread(key = response, value = total, fill = 0) %>%
+#remove the reorganization to facilitate creation of the table
   ungroup() %>%
+#start to create the necessary values to find proportions
   mutate(all = Dem + Rep + Und + `3`) %>%
+#next 3 lines are calculating proportions for each response
   mutate(Dem = Dem/all) %>% 
   mutate(Rep = Rep/all) %>% 
   mutate(Und = Und/all) %>%
+#remove unnecessary columns
   select(-all, -`3`) %>% 
+#change all NA values into 0
   na_if(0) %>% 
+#use the gt package as all cool people do
   gt() %>% 
+#relabel columns to match model
   cols_label(Dem = "DEM.", Rep = "REP.", Und = "UND.", race_eth = " ") %>% 
-  fmt_percent(columns = vars(Dem, Rep, Und), decimals = 0) %>% 
+#change proportions into percentages with no decimal places
+  fmt_percent(columns = vars(Dem, Rep, Und), decimals = 0) %>%
+#change the 0 into a dash
   fmt_missing(columns = 4, rows = 4, missing_text = "-")
   
 ``` 
@@ -96,16 +129,27 @@ x %>%
   
 ```{r, echo = FALSE}
 x %>% 
+#filter for relevant education levels
   filter(educ %in% c("Bachelors' degree", "Grade school", "Graduate or Professional Degree", "High school", "Some college or trade school")) %>% 
+#reorder the different education levels to mirror model
   mutate(educ = fct_relevel(educ, c("Grade school", "High school", "Some college or trade school", "Bachelors' degree", "Graduate or Professional Degree"))) %>% 
+#reorganize data by education level
   group_by(educ) %>% 
+#begin violin chart, assigning variables in opposite order as one would think, to facilitate coord flip because this bypasses the position dodge
   ggplot(aes(x = educ, y = final_weight)) +
+#swap the axes
   coord_flip() +
+#input the violin plot
   geom_violin() +
-  geom_jitter(alpha = .5) +
+#make individual data visible
+  geom_jitter(alpha = .5, size = 1) +
+#change to appropriate theme (guess and check)
   theme_gray() +
+#Add titles and subtitles and captions to match the model
   labs(title = "More Educated Matter Less in North Carolina 9th", subtitle = "Poll gives more weight to people who are less likely to participate in polls", caption = "New York Times Upshot/Sienna College 2018 live polls") +
+#remove label on x (vertical in this case) axis
   xlab(element_blank()) +
+#add label to y (horizontal) axis
   ylab("Weight Given to Respondent in Calculating Poll Results")
   
 ```
@@ -113,15 +157,24 @@ x %>%
 #Question 4
 
 ```{r, echo = FALSE, message=FALSE}
+#create a label function to relabel facets later
 labels <- c(Dem = "Democrats", Rep = "Republicans")
 x %>% 
-  filter(ager != "[DO NOT READ] Refused", response %in% c("Dem", "Rep")) %>% 
+#filter out undecideds and people without a reported age range
+  filter(ager != "[DO NOT READ] Refused", response %in% c("Dem", "Rep")) %>%
+#reorder data according to response and then by age range
   group_by(response, ager) %>% 
+#begin bar chart using geom_bar, due to lack of y aesthetic
   ggplot(aes(x = ager, fill = response)) +
+#input the bar format
   geom_bar() +
+#divide into two graphs side by side to facilitate the viewer getting a sense of the general age makeup of each party's voters
   facet_wrap(~response, labeller = labeller(response = labels)) +
+#add in a fun and appropriate theme
   theme_gray() +
+#recolor the bars as is consistent with the parties' theme colors
   scale_fill_manual(breaks = c("Dem", "Rep"), values = c("#008FD5", "#FF2700")) +
+#Label both axes
   xlab("Age Range of Respondent") +
   ylab("Number of Respondents")
 ```
